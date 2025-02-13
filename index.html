@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat with DeepSeek-R1</title>
+  <style>
+    /* Basic styling for the UI */
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+    }
+    button {
+      display: block;
+      margin: 15px auto;
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+    #responseText {
+      margin: 20px 0;
+      font-size: 18px;
+      padding: 10px;
+      background: #e9ecef;
+      border-radius: 4px;
+    }
+    audio {
+      width: 100%;
+      margin-top: 10px;
+    }
+    video {
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Chat with DeepSeek-R1</h1>
+    <textarea id="queryInput" rows="4" placeholder="Type your query here..."></textarea>
+    <button id="sendButton">Send</button>
+    <div id="responseText"></div>
+    
+    <!-- Audio player for the generated response -->
+    <audio id="audioPlayer" controls></audio>
+
+    <!-- Video player for the generated talking video -->
+    <video id="videoPlayer" controls autoplay></video>
+  </div>
+
+  <script>
+    // Utility function: Convert a base64 string to a Blob
+    function base64ToBlob(base64, mimeType = 'audio/mp3') {
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: mimeType });
+    }
+
+    // Handle button click: send the query to your FastAPI endpoint.
+    document.getElementById('sendButton').addEventListener('click', async function () {
+      const query = document.getElementById('queryInput').value.trim();
+      if (!query) {
+        alert("Please enter a query.");
+        return;
+      }
+
+      // Disable the button to prevent multiple submissions.
+      document.getElementById('sendButton').disabled = true;
+
+      try {
+        const response = await fetch('http://127.0.0.1:8000/talking', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ query })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(errorData);
+        }
+
+        const data = await response.json();
+        
+        // Display the text response.
+        document.getElementById('responseText').textContent = data.text;
+
+        // Handle the audio response
+        const audioBlob = base64ToBlob(data.audio_base64, 'audio/wav');
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audioPlayer = document.getElementById('audioPlayer');
+        audioPlayer.src = audioUrl;
+
+        // Handle the video response
+        const videoBlob = base64ToBlob(data.video_base64, 'video/mp4');
+        const videoUrl = URL.createObjectURL(videoBlob);
+        const videoPlayer = document.getElementById('videoPlayer');
+        videoPlayer.src = videoUrl;
+        
+      } catch (error) {
+        alert("Error: " + error.message);
+      } finally {
+        // Re-enable the button.
+        document.getElementById('sendButton').disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
